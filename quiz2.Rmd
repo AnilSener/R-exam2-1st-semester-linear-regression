@@ -1,0 +1,224 @@
+---
+title: "quiz2"
+author: "marco"
+date: "16/12/2014"
+output: html_document
+---
+
+This test contains 10 questions. Each question is worth 10 points. The maximum
+grade is 100. 
+
+Consider the dataset available in the file "dataQuiz2.csv". The file contains 
+the following columns:
+
+* _crim_ : per capita crime rate by town.
+* _zn_ : proportion of residential land zoned for lots over 25,000 sq.ft.
+* _indus_ : proportion of non-retail business acres per town.
+* _chas_ : Charles River dummy variable (= 1 if tract bounds river; 0 otherwise).
+* _nox_ : nitrogen oxides concentration (parts per 10 million).
+* _rm_ : average number of rooms per dwelling.
+* _age_ : proportion of owner-occupied units built prior to 1940.
+* _dis_ : weighted mean of distances to five Boston employment centres.
+* _rad_ : index of accessibility to radial highways.
+* _tax_ : full-value property-tax rate per \$10,000.
+* _ptratio_ : pupil-teacher ratio by town.
+* _black_ : 1000(Bk - 0.63)^2, where Bk is the proportion of blacks by town.
+* _lstat_ : lower status of the population (percent).
+* _medv_ : median value of owner-occupied homes in \$1000s.
+
+During this test, you will analyze the relation between the variable _crim_ and 
+a set of the independent variables. Throughout the analysis, assume alpha = 0.05.
+
+Answer every question below creating a chunk of code. Please, ensure that the 
+chunk can be compiled and that, once compiled, it provides the answer to the 
+question. 
+
+
+__Q1__. Read the data from the file and store it into a dataframe
+
+```{r q1}
+df<-read.csv("dataQuiz2.csv")
+```
+
+__Q2__. Copy in a different dataframe the following columns. Make sure that your
+new dataframe contains the desired columns:
+
+* crim, zn, indus, medv
+```{r q2}
+dfnew<-data.frame(df$crim,df$zn,df$indus,df$medv)
+colnames(dfnew)<-c("crim","zn","indus","medv")
+```
+
+__Q3__. Using the reduced dataframe you created in the previous step, produce 3
+scatter plots (one for each independent variable), each with a trendline. 
+In each scatter plot, place the dependent variable on the "y axis" and the 
+independent variable on the "x axis". Comment on the relation between the two 
+variables.
+```{r q3}
+library("ggplot2")
+qplot(zn,crim,data=dfnew,geom="point")+geom_smooth(method="lm",se=FALSE)
+qplot(indus,crim,data=dfnew,geom="point")+geom_smooth(method="lm",se=FALSE)
+qplot(medv,crim,data=dfnew,geom="point")+geom_smooth(method="lm",se=FALSE)
+
+```
+It seems that there is a weak negative correlation between  zn variable and crime rate
+It seems that there is a positive correlation between indus variable and crime rate
+It seems that there is a negative correlation between medv variable and crime rate
+
+__Q4__. Now run 3 simple linear regression model. Each regression model will
+use the dependent variable _crim_ and one independent variable at a time. Thus,
+you will have to create the following three models:
+
+- crim = beta0 + beta1*zn
+- crim = beta0 + beta1*indus
+- crim = beta0 + beta1*medv
+
+Store the three slope coefficients in a vector. You will need them in the next
+question.
+
+```{r q4}
+fit1 <- lm(crim ~ zn, data=dfnew)
+summary(fit1)
+fit2 <- lm(crim ~ indus, data=dfnew)
+summary(fit2)
+fit3 <- lm(crim ~ medv, data=dfnew)
+summary(fit3)
+
+slopes<-c(fit1$coefficient[2],fit2$coefficient[2],fit3$coefficient[2])
+```
+
+__Q5__. Now run a full regression model, using all the independent variables 
+(i.e., zn, indus, medv). Keep all the independent variables in the model.
+
+```{r q5}
+fit4 <- lm(crim ~ zn + indus + medv, data=dfnew)
+summary(fit4)
+```
+
+__Q6__. Again, keep all the variables in the model and provide the value of the 
+following statistics:
+
+* p-value of the global model: 2.2e-16
+* F-statistic:46.04
+* R^2 value:0.2111
+* significant variables: indus, medv 
+
+__Q7__. Create a scatter plot displaying the univariate regression coefficients
+from (Q4) on the x-axis (i.e., the beta1 values you obtained from each of the 
+simple linear regression), and the multiple regression coefficients from (Q5) 
+on the y-axis. That is, each predictor is displayed as a single point in the plot. 
+Its coefficient in a simple linear regression model is shown on the x-axis, and 
+its coefficient estimate in the multiple linear regression model is shown on the
+y-axis. Interpret your findings.
+
+```{r q7}
+
+qplot(slopes,fit4$coefficient[2:4],geom="point")
+```
+It seems that new formula decreased the extrimity of each variable coefficient
+
+__Q8__. Now eliminate every non-significant variable from  the model and, using
+the remaining significant variables, check for interaction effects. Is there any 
+significant interaction effect? Produce a plot to illustrate the interaction effect
+and try to interpret it:
+
+```{r q8}
+fit5 <- lm(crim ~ indus + medv + indus : medv -1, data=dfnew) #I am also eliminating the intercept, since it was insignificant
+#as you suggested in the class I am not removing +medv from the formula although it is insignificant because it doesn't change anything
+summary(fit5)
+library(effects)
+plot(effect("indus : medv", fit5, xlevels=list(indus=c(7,8))), multiline=TRUE)
+
+
+```
+There is a strong interaction of based on the interaction of medv with different indus values; beta3 is very significant according to the low p-value.
+
+__Q9__. Try to add quadratic terms to the regression model. Does the model improve?
+What is the new R^2 value?
+```{r q9}
+fit6 <- lm(crim ~ indus + I(indus + medv)^2 + indus : medv -1, data=dfnew) 
+summary(fit6)
+fit7 <- lm(crim ~ (indus + medv)^2 + indus : medv -1, data=dfnew) 
+summary(fit7)
+```
+
+__Q10__. Add the predicted values and the residuals obtained with the best 
+regression model to the dataframe you are using (as two new columns), and save 
+this newly obtained dataframe into a "csv" file on disk (call this file 
+"predicted.cvs").
+
+```{r q10}
+
+dfout<-data.frame(predict(fit5),resid(fit5))
+colnames(dfout)<-c("predictions","residuals")
+write.csv(dfout,"predicted.cvs")
+```
+
+_Q11_. (Extra Credit) Using the best model you obtain, run regression diagnostic. 
+Point out whether the assumptions of regression are satisfied or violated 
+(however, if any of the assumtions are violated, you do not need to correct or 
+modify the model)
+
+```{r}
+library(car)
+```
+
+1-Checking linear Relation
+
+```{r}
+qplot(crim, indus, data=dfnew, geom="point") + geom_smooth(method="lm")
+```
+The relationship between independent and dependent variable is not linear at all
+
+```{r}
+qplot(predict(fit5), resid(fit5), geom="point") + geom_hline(yintercept=0)
+```
+There is a pattern in the distribution of the residuals.
+Linearity is violated.
+
+2-Checking Normality
+
+```{r}
+qqPlot(fit5, labels=row.names(fit5), id.method="identify",main = "QQ-Plot")
+x <- resid(fit5)
+qplot(x,geom="blank") +
+geom_histogram( colour=I("white"), aes(y=..density..)) +
+  stat_function(fun=dnorm, aes(colour="Normal"),arg=list(mean=mean(resid(fit5)),
+                                                         sd=sd(resid(fit5))))
+```
+There are many outliers like "498" "499" "500" "501" "502" "503" "504" "505" "506"
+It is hard to say it is normally disributed with so many outliers
+
+3-Checking Homoscedasticity
+```{r}
+
+spreadLevelPlot(fit5)
+qplot(predict(fit5),resid(fit5),geom="point")+geom_hline(yintercept=0)
+```
+Residuals are not very homogenously distributed in the . Plus the line spreadlevel plot, the line is 
+too steep. This assumption is also violated.
+
+4- Checking Independence
+
+```{r}
+durbinWatsonTest(fit5)
+```
+Null Hypothesis that assumes that variables are independent is rejected, it seems that variables are depending on test statistics are to far from 2 and p-value is not large enough to fail to reject the null hypothesis. This assumption is also violated.
+
+Cheking Multicollinearity
+```{r}
+vif(fit5)
+```
+Since some of the variables like indus and indus:medv are above 5 we can say that there is multicollinearity
+
+Outlier Test
+```{r}
+outlierTest(fit5)
+
+```
+There are 6 residual outliers that failed the bonferroni/outlier test
+
+
+
+
+
